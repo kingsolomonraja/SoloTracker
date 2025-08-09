@@ -1,0 +1,39 @@
+{
+  "expo": {
+    "name": "SoloTracker",
+    "slug": "SoloTracker",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/favicon.png",
+    "scheme": "studentpunch",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "android": {
+      "package": "com.yourcompany.studentpunch"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.yourcompany.studentpunch"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-web-browser",
+      "@react-native-google-signin/google-signin"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a188ce2e-ed20-4bd8-8ad6-14d339a8fe7e"
+      }
+    }
+  }
+}
