@@ -172,4 +172,4 @@ For issues related to:
 - Google Sign-In: Ensure proper SHA-1 fingerprint setup and Web Client ID configuration
 - Location services: Ensure location permissions are granted
 - Biometric auth: Verify device support and enrollment
-- Build issues: Refer to Expo documentation for native module setup
+- Build issues: Refer to Expo documentation for native module setup# Solo-Tracker
