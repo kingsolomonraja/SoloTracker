@@ -30,7 +30,14 @@ export default function HistoryScreen() {
     
     try {
       const records = await FirestoreService.getCheckIns(user.uid);
-      setCheckIns(records);
+      // Filter out records with undefined timestamp and cast timestamp to Date
+      const validRecords = records
+        .filter((rec: any) => rec.timestamp instanceof Date)
+        .map((rec: any) => ({
+          ...rec,
+          timestamp: rec.timestamp as Date,
+        }));
+      setCheckIns(validRecords);
     } catch (error) {
       console.error('Error loading check-ins:', error);
     } finally {

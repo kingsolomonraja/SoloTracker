@@ -20,7 +20,7 @@ export default function BiometricScreen() {
       Alert.alert(
         'Biometrics Not Supported',
         'Your device does not support biometric authentication. Proceeding to main app.',
-        [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
+        [{ text: 'OK', onPress: () => router.replace('/') }]
       );
       return;
     }
@@ -30,7 +30,7 @@ export default function BiometricScreen() {
       Alert.alert(
         'No Biometrics Enrolled',
         'Please set up biometric authentication in your device settings.',
-        [{ text: 'OK', onPress: () => router.replace('/(tabs)') }]
+        [{ text: 'OK', onPress: () => router.replace('/') }]
       );
       return;
     }
@@ -55,7 +55,7 @@ export default function BiometricScreen() {
       });
 
       if (result.success) {
-        router.replace('/(tabs)');
+        router.replace('/');
       } else {
         Alert.alert('Authentication Failed', 'Please try again');
       }
@@ -67,7 +67,7 @@ export default function BiometricScreen() {
   };
 
   const skipBiometric = () => {
-    router.replace('/(tabs)');
+    router.replace('/');
   };
 
   return (

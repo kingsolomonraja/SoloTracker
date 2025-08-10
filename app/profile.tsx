@@ -1,5 +1,4 @@
-// components/ProfileScreen.tsx
-
+// app/profile.tsx
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -17,17 +16,17 @@ import {
 } from 'react-native-paper';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { User, LogOut, Mail } from 'lucide-react-native';
-import { useAuth } from '@/contexts/AuthContext';
 import { router } from 'expo-router';
 import { FirestoreService } from '@/services/FirestoreService';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function ProfileScreen() {
   const { user, signOut } = useAuth();
+
   const [name, setName] = useState('Student User');
   const [showPrompt, setShowPrompt] = useState(false);
   const [tempName, setTempName] = useState('');
 
-  // ✅ Load user's name from Firestore on mount
   useEffect(() => {
     const fetchUserProfile = async () => {
       if (!user?.uid) return;
@@ -35,6 +34,8 @@ export default function ProfileScreen() {
         const profile = await FirestoreService.getUserProfile(user.uid);
         if (profile?.name) {
           setName(profile.name);
+        } else if (user?.fullName) {
+          setName(user.fullName);
         }
       } catch (e) {
         console.error('Failed to load user profile:', e);
@@ -44,7 +45,6 @@ export default function ProfileScreen() {
     fetchUserProfile();
   }, [user?.uid]);
 
-  // ✅ Prompt handling
   const openNamePrompt = () => {
     setTempName(name);
     setShowPrompt(true);
@@ -77,7 +77,7 @@ export default function ProfileScreen() {
         style: 'destructive',
         onPress: async () => {
           await signOut();
-          router.replace('/login');
+          router.replace('/');
         },
       },
     ]);
@@ -136,7 +136,6 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* 🔧 Name Update Dialog */}
         <Portal>
           <Dialog visible={showPrompt} onDismiss={() => setShowPrompt(false)}>
             <Dialog.Title>Enter Your Name</Dialog.Title>
@@ -159,87 +158,26 @@ export default function ProfileScreen() {
   );
 }
 
+// styles unchanged (same as your previous file)
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-  },
-  content: {
-    flex: 1,
-    padding: 24,
-  },
-  header: {
-    marginBottom: 32,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#000000',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666666',
-    lineHeight: 24,
-  },
-  profileSection: {
-    alignItems: 'center',
-    marginBottom: 48,
-  },
+  container: { flex: 1, backgroundColor: '#ffffff' },
+  content: { flex: 1, padding: 24 },
+  header: { marginBottom: 32 },
+  title: { fontSize: 28, fontWeight: 'bold', color: '#000000', marginBottom: 8 },
+  subtitle: { fontSize: 16, color: '#666666', lineHeight: 24 },
+  profileSection: { alignItems: 'center', marginBottom: 48 },
   avatarContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 2,
-    borderColor: '#000000',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
+    width: 120, height: 120, borderRadius: 60, borderWidth: 2, borderColor: '#000000',
+    justifyContent: 'center', alignItems: 'center', marginBottom: 16,
   },
-  userInfo: {
-    alignItems: 'center',
-  },
-  userName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#000000',
-    marginBottom: 8,
-    textDecorationLine: 'underline',
-  },
-  emailContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  userEmail: {
-    fontSize: 16,
-    color: '#666666',
-    marginLeft: 6,
-  },
-  actionsSection: {
-    marginBottom: 32,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000000',
-    marginBottom: 16,
-  },
-  signOutButton: {
-    borderColor: '#000000',
-    borderWidth: 2,
-  },
-  signOutButtonText: {
-    color: '#000000',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  infoSection: {
-    marginTop: 'auto',
-  },
-  infoText: {
-    fontSize: 14,
-    color: '#666666',
-    lineHeight: 20,
-  },
+  userInfo: { alignItems: 'center' },
+  userName: { fontSize: 20, fontWeight: 'bold', color: '#000000', marginBottom: 8, textDecorationLine: 'underline' },
+  emailContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  userEmail: { fontSize: 16, color: '#666666', marginLeft: 6 },
+  actionsSection: { marginBottom: 32 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#000000', marginBottom: 16 },
+  signOutButton: { borderColor: '#000000', borderWidth: 2 },
+  signOutButtonText: { color: '#000000', fontSize: 16, fontWeight: '600' },
+  infoSection: { marginTop: 'auto' },
+  infoText: { fontSize: 14, color: '#666666', lineHeight: 20 },
 });

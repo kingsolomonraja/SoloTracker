@@ -1,381 +1,271 @@
-import React, { useState, useEffect, useRef } from 'react';
+// app/index.tsx
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Alert,
-  Modal,
   TouchableOpacity,
-  Image,
+  Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
-import { Button } from 'react-native-paper';
+import { TextInput, Button, Portal, Dialog } from 'react-native-paper';
+import { router } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CircleCheck as CheckCircle } from 'lucide-react-native';
-import {
-  Camera,
-  CameraView,
-  CameraPictureOptions,
-  CameraType,
-  PermissionStatus,
-} from 'expo-camera';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Mail } from 'lucide-react-native';
+import * as WebBrowser from 'expo-web-browser';
+import { useOAuth } from '@clerk/clerk-expo';
+import { makeRedirectUri } from 'expo-auth-session';
+import { useAuthContext } from '@/contexts/AuthContext';
 
-import { useAuth } from '@/contexts/AuthContext';
-import { LocationService } from '@/services/LocationService';
-import { FirestoreService } from '@/services/FirestoreService';
+WebBrowser.maybeCompleteAuthSession();
 
-// Helper: Format UNIX timestamp to hh:mm AM/PM local time
-const formatTime = (timestamp: number) => {
-  const date = new Date(timestamp * 1000);
-  return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-};
+export default function LoginScreen() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
-export default function PunchInScreen() {
-  const { user } = useAuth();
+  // For missing fields flow
+  const [missingFields, setMissingFields] = useState<string[]>([]);
+  const [missingValues, setMissingValues] = useState<Record<string, string>>({});
+  const [pendingSignUpObj, setPendingSignUpObj] = useState<any>(null);
+  const [showMissingDialog, setShowMissingDialog] = useState(false);
 
-  const [userName, setUserName] = useState('Student');
-  const [isLoading, setIsLoading] = useState(false);
-  const [lastCheckIn, setLastCheckIn] = useState<string | null>(null);
+  const { signInEmailPassword } = useAuthContext();
+  const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
 
-  const [cameraVisible, setCameraVisible] = useState(false);
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-  const [capturedImageUri, setCapturedImageUri] = useState<string | null>(null);
-  const [cameraType, setCameraType] = useState<CameraType>('front');
-  const cameraRef = useRef<CameraView | null>(null);
-
-  const [weather, setWeather] = useState<{
-    description: string;
-    temp: number;
-    humidity: number;
-    windSpeed: number;
-    sunrise: number;
-    sunset: number;
-  } | null>(null);
-  const [weatherLoading, setWeatherLoading] = useState(false);
-  const [weatherError, setWeatherError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchUserName = async () => {
-      if (user?.uid) {
-        const profile = await FirestoreService.getUserProfile(user.uid);
-        if (profile?.name) {
-          setUserName(profile.name);
-        }
-      }
-    };
-    fetchUserName();
-  }, [user?.uid]);
-
-  useEffect(() => {
-    (async () => {
-      const { status } = await Camera.requestCameraPermissionsAsync();
-      setHasCameraPermission(status === PermissionStatus.GRANTED);
-    })();
-  }, []);
-
-  useEffect(() => {
-    if (!capturedImageUri) return;
-
-    const savePunchIn = async () => {
-      setIsLoading(true);
-      try {
-        if (!user) throw new Error('User not authenticated');
-
-        const location = await LocationService.getCurrentLocation();
-        if (!location) throw new Error('Could not retrieve location');
-
-        await FirestoreService.saveCheckIn({
-          userId: user.uid,
-          email: user.email,
-          timestamp: new Date(),
-          latitude: location.latitude,
-          longitude: location.longitude,
-          // imageUri: capturedImageUri,
-        });
-
-        const time = new Date().toLocaleTimeString();
-        setLastCheckIn(time);
-        Alert.alert('Check-in Successful!', `Checked in at ${time}`);
-      } catch (err: any) {
-        console.error('Check-in error:', err);
-        Alert.alert('Check-in Failed', err.message || 'Unknown error');
-      } finally {
-        setIsLoading(false);
-        setCapturedImageUri(null);
-      }
-    };
-
-    savePunchIn();
-  }, [capturedImageUri]);
-
-  useEffect(() => {
-    const fetchWeather = async () => {
-      setWeatherLoading(true);
-      setWeatherError(null);
-      try {
-        const location = await LocationService.getCurrentLocation();
-        if (!location) throw new Error('Could not get location for weather');
-
-        const apiKey = '51cc033b7ef66b931ec6aba15e0b1792'; // Your OpenWeatherMap API key
-        const url = `https://api.openweathermap.org/data/2.5/weather?lat=${location.latitude}&lon=${location.longitude}&units=metric&appid=${apiKey}`;
-
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error('Failed to fetch weather');
-        }
-        const data = await response.json();
-
-        setWeather({
-          description: data.weather[0].description,
-          temp: data.main.temp,
-          humidity: data.main.humidity,
-          windSpeed: data.wind.speed,
-          sunrise: data.sys.sunrise,
-          sunset: data.sys.sunset,
-        });
-      } catch (error: any) {
-        setWeatherError(error.message);
-      } finally {
-        setWeatherLoading(false);
-      }
-    };
-
-    fetchWeather();
-  }, []);
-
-  const takePicture = async () => {
-    if (cameraRef.current) {
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.7,
-      } as CameraPictureOptions);
-      setCapturedImageUri(photo.uri);
-      setCameraVisible(false);
+  const handleEmailSignIn = async () => {
+    setLoading(true);
+    try {
+      await signInEmailPassword(email, password);
+      router.replace('/biometric');
+    } catch (err: any) {
+      Alert.alert('Sign-in Failed', err?.message || 'Please try again');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const toggleCameraType = () => {
-    setCameraType((prev) => (prev === 'front' ? 'back' : 'front'));
+  const randomPassword = (len = 16) => {
+    const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+-=';
+    let out = '';
+    for (let i = 0; i < len; i++) out += chars[Math.floor(Math.random() * chars.length)];
+    return out;
   };
 
-  const handlePunchIn = () => {
-    if (!user) {
-      Alert.alert('Error', 'User not authenticated');
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading(true);
+    try {
+      const redirectUri = makeRedirectUri({
+  scheme: "studentpunch" // your app.json scheme
+});
+
+      console.log('Using redirectUri:', redirectUri);
+
+      const result: any = await startOAuthFlow({ redirectUrl: redirectUri });
+      console.log('startOAuthFlow result:', result);
+
+      const { createdSessionId, setActive, signUp } = result || {};
+
+      if (createdSessionId) {
+        await setActive({ session: createdSessionId });
+        router.replace('/biometric');
+        return;
+      }
+
+      // If signup exists but missing required fields, prompt user
+      if (signUp && signUp.status === 'missing_requirements') {
+        const fields = signUp.missingFields || signUp.requiredFields || [];
+        setMissingFields(fields);
+        setPendingSignUpObj({ signUp, setActive });
+        // init missingValues with empty strings
+        const init: Record<string, string> = {};
+        (fields || []).forEach((f: string) => {
+          init[f] = '';
+        });
+        setMissingValues(init);
+        setShowMissingDialog(true);
+        return;
+      }
+
+      Alert.alert('Error', 'Google Sign-in failed: missing session data.');
+    } catch (err: any) {
+      console.error('Google sign-in error:', err);
+      Alert.alert('Google Sign-In Failed', err?.message || JSON.stringify(err));
+    } finally {
+      setGoogleLoading(false);
+    }
+  };
+
+  const updateMissingValue = (key: string, value: string) => {
+    setMissingValues((p) => ({ ...p, [key]: value }));
+  };
+
+  const finishSignUpWithMissingFields = async () => {
+    if (!pendingSignUpObj) {
+      Alert.alert('Error', 'No pending sign-up to complete.');
       return;
     }
-    setCameraVisible(true);
+    setGoogleLoading(true);
+    try {
+      const { signUp, setActive } = pendingSignUpObj;
+      const payload: Record<string, any> = {};
+
+      // include only provided fields
+      missingFields.forEach((f) => {
+        const v = (missingValues[f] || '').trim();
+        if (v) payload[f] = v;
+      });
+
+      // if password is required but user didn't type one, generate a random strong password
+      const requiresPassword =
+        (signUp.requiredFields && signUp.requiredFields.includes('password')) ||
+        (signUp.missingFields && signUp.missingFields.includes('password'));
+
+      if (requiresPassword && !payload.password) {
+        payload.password = randomPassword(20);
+      }
+
+      // Try updating the signUp with the provided payload
+      if (typeof signUp.update === 'function') {
+        await signUp.update(payload);
+      }
+
+      // Attempt to finalize/create the sign up (some Clerk flows may need create)
+      if (typeof signUp.create === 'function') {
+        await signUp.create();
+      }
+
+      // After update/create, try to get createdSessionId from signUp
+      const createdSessionId = signUp.createdSessionId || (signUp?.createdSessionId === '' ? null : signUp.createdSessionId);
+
+      // If the SDK returned a session, activate it
+      if (createdSessionId) {
+        await setActive({ session: createdSessionId });
+        setShowMissingDialog(false);
+        router.replace('/biometric');
+        return;
+      }
+
+      // As a fallback, ask user to try again or check dashboard settings
+      Alert.alert(
+        'Signup incomplete',
+        'We updated your account details but could not automatically sign you in. Please try signing in again or contact support.'
+      );
+    } catch (err: any) {
+      console.error('finishSignUpWithMissingFields error:', err);
+      Alert.alert('Error', err?.message || JSON.stringify(err));
+    } finally {
+      setGoogleLoading(false);
+      setShowMissingDialog(false);
+      setPendingSignUpObj(null);
+      setMissingFields([]);
+      setMissingValues({});
+    }
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Hello, {userName} 👋</Text>
-          <Text style={styles.subtitle}>Ready to check in?</Text>
+        <Text style={styles.title}>Student Check-In</Text>
+        <Text style={styles.subtitle}>Welcome back! Please sign in to continue.</Text>
+
+        <TextInput
+          label="Email"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          style={styles.input}
+          mode="outlined"
+        />
+        <TextInput
+          label="Password"
+          value={password}
+          onChangeText={setPassword}
+          secureTextEntry
+          style={styles.input}
+          mode="outlined"
+        />
+
+        <Button
+          mode="outlined"
+          onPress={handleEmailSignIn}
+          loading={loading}
+          disabled={loading || googleLoading}
+          style={styles.button}
+          labelStyle={styles.buttonText}
+        >
+          Sign In
+        </Button>
+
+        <View style={styles.dividerContainer}>
+          <View style={styles.divider} />
+          <Text style={styles.dividerText}>OR</Text>
+          <View style={styles.divider} />
         </View>
 
-        <View style={styles.punchInContainer}>
-          <View style={styles.iconContainer}>
-            <Image
-              source={require('../assets/logo.png')}
-              style={{ width: 120, height: 100 }}
-              resizeMode="contain"
-            />
-          </View>
-
-          <Button
-            mode="outlined"
-            onPress={handlePunchIn}
-            loading={isLoading}
-            disabled={isLoading}
-            style={styles.punchInButton}
-            labelStyle={styles.punchInButtonText}
-          >
-            {isLoading ? 'Processing...' : 'Punch In'}
-          </Button>
-        </View>
-
-        {lastCheckIn && (
-          <View style={styles.lastCheckInContainer}>
-            <CheckCircle size={24} color="#000" />
-            <Text style={styles.lastCheckInText}>Last check-in: {lastCheckIn}</Text>
-          </View>
-        )}
-
-        {/* Enhanced Weather Section */}
-        <View style={styles.weatherBox}>
-          <Text style={styles.weatherTitle}>Today's Weather</Text>
-          {weatherLoading ? (
-            <Text style={styles.weatherText}>Loading weather...</Text>
-          ) : weatherError ? (
-            <Text style={styles.weatherError}>Error: {weatherError}</Text>
-          ) : weather ? (
-            <>
-              <View style={styles.weatherMainRow}>
-                <MaterialCommunityIcons name="weather-partly-cloudy" size={48} color="#4a90e2" />
-                <Text style={styles.weatherMainText}>
-                  {weather.description.charAt(0).toUpperCase() + weather.description.slice(1)}
-                </Text>
-                <Text style={styles.weatherTemp}>{Math.round(weather.temp)}°C</Text>
-              </View>
-
-              <View style={styles.weatherDetails}>
-                <View style={styles.detailItem}>
-                  <MaterialCommunityIcons name="water-percent" size={24} color="#00aaff" />
-                  <Text style={styles.detailText}>Humidity: {weather.humidity}%</Text>
-                </View>
-
-                <View style={styles.detailItem}>
-                  <MaterialCommunityIcons name="weather-windy" size={24} color="#00cc88" />
-                  <Text style={styles.detailText}>Wind: {weather.windSpeed} m/s</Text>
-                </View>
-
-                <View style={styles.detailItem}>
-                  <MaterialCommunityIcons name="weather-sunset-up" size={24} color="#ffaa00" />
-                  <Text style={styles.detailText}>Sunrise: {formatTime(weather.sunrise)}</Text>
-                </View>
-
-                <View style={styles.detailItem}>
-                  <MaterialCommunityIcons name="weather-sunset-down" size={24} color="#ff4400" />
-                  <Text style={styles.detailText}>Sunset: {formatTime(weather.sunset)}</Text>
-                </View>
-              </View>
-            </>
-          ) : (
-            <Text style={styles.weatherText}>No weather data available</Text>
-          )}
-        </View>
+        <TouchableOpacity
+          style={[styles.googleButton, googleLoading && styles.disabledButton]}
+          onPress={handleGoogleSignIn}
+          disabled={loading || googleLoading}
+        >
+          <Mail size={20} color="#000000" />
+          <Text style={styles.googleButtonText}>
+            {googleLoading ? 'Signing in...' : 'Continue with Google'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      <Modal animationType="slide" visible={cameraVisible} onRequestClose={() => setCameraVisible(false)}>
-        <View style={styles.cameraContainer}>
-          {hasCameraPermission === null ? (
-            <Text>Requesting camera permission...</Text>
-          ) : hasCameraPermission === false ? (
-            <Text>No access to camera</Text>
-          ) : (
-            <View style={{ flex: 1 }}>
-              <CameraView style={StyleSheet.absoluteFill} facing={cameraType} ref={cameraRef} />
-              <View style={styles.overlayContainer}>
-                <TouchableOpacity style={styles.button} onPress={takePicture}>
-                  <Text style={styles.text}>Take Photo</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.button} onPress={toggleCameraType}>
-                  <Text style={styles.text}>Flip</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.button} onPress={() => setCameraVisible(false)}>
-                  <Text style={styles.text}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-        </View>
-      </Modal>
+      {/* Missing fields dialog */}
+      <Portal>
+        <Dialog visible={showMissingDialog} onDismiss={() => setShowMissingDialog(false)}>
+          <Dialog.Title>More details required</Dialog.Title>
+          <Dialog.Content>
+            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+              {missingFields.map((field) => (
+                <TextInput
+                  key={field}
+                  label={field.replace('_', ' ')}
+                  value={missingValues[field] || ''}
+                  onChangeText={(text) => updateMissingValue(field, text)}
+                  style={{ marginBottom: 12 }}
+                  mode="outlined"
+                  autoCapitalize="none"
+                />
+              ))}
+            </KeyboardAvoidingView>
+          </Dialog.Content>
+          <Dialog.Actions>
+            <Button onPress={() => setShowMissingDialog(false)}>Cancel</Button>
+            <Button onPress={finishSignUpWithMissingFields} loading={googleLoading}>
+              Continue
+            </Button>
+          </Dialog.Actions>
+        </Dialog>
+      </Portal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#ffffff' },
-  content: { flex: 1, padding: 24 },
-  header: { marginBottom: 40 },
-  title: { fontSize: 28, fontWeight: 'bold', color: '#000', marginBottom: 8 },
-  subtitle: { fontSize: 16, color: '#666', lineHeight: 24 },
-  punchInContainer: { alignItems: 'center', marginBottom: 40 },
-  iconContainer: { marginBottom: 32 },
-  punchInButton: {
-    borderColor: '#000',
-    borderWidth: 3,
-    paddingVertical: 8,
-    paddingHorizontal: 32,
+  container: { flex: 1, backgroundColor: '#fff' },
+  content: { flex: 1, justifyContent: 'center', padding: 24 },
+  title: { fontSize: 32, fontWeight: 'bold', textAlign: 'center', marginBottom: 8 },
+  subtitle: { fontSize: 16, textAlign: 'center', color: '#666', marginBottom: 48 },
+  input: { backgroundColor: '#fff' },
+  button: { marginTop: 16, borderColor: '#000', borderWidth: 2 },
+  buttonText: { color: '#000', fontSize: 16, fontWeight: '600' },
+  dividerContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 24 },
+  divider: { flex: 1, height: 1, backgroundColor: '#E0E0E0' },
+  dividerText: { marginHorizontal: 16, color: '#666', fontSize: 14 },
+  googleButton: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: '#000', borderRadius: 4,
+    paddingVertical: 12, paddingHorizontal: 16, gap: 12,
   },
-  punchInButtonText: { color: '#000', fontSize: 18, fontWeight: 'bold' },
-  lastCheckInContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 24,
-    gap: 8,
-  },
-  lastCheckInText: { fontSize: 16, color: '#000', fontWeight: '500' },
-
-  // Weather styles
-  weatherBox: {
-    backgroundColor: '#f0f8ff',
-    padding: 24,
-    borderRadius: 16,
-    marginTop: 'auto',
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
-    alignItems: 'center',
-  },
-  weatherTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#003366',
-    marginBottom: 12,
-  },
-  weatherMainRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    marginBottom: 20,
-  },
-  weatherMainText: {
-    fontSize: 22,
-    fontWeight: '600',
-    color: '#004d99',
-    flexShrink: 1,
-  },
-  weatherTemp: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#007acc',
-  },
-  weatherDetails: {
-    width: '100%',
-    gap: 14,
-  },
-  detailItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  detailText: {
-    fontSize: 16,
-    color: '#005577',
-  },
-  weatherText: {
-    fontSize: 16,
-    color: '#666',
-  },
-  weatherError: {
-    fontSize: 16,
-    color: 'red',
-    fontWeight: '600',
-  },
-
-  cameraContainer: { flex: 1, backgroundColor: 'black' },
-  overlayContainer: {
-    position: 'absolute',
-    bottom: 50,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingHorizontal: 20,
-  },
-  button: {
-    padding: 16,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    borderRadius: 8,
-  },
-  text: {
-    fontSize: 18,
-    color: 'white',
-  },
+  disabledButton: { opacity: 0.6 },
+  googleButtonText: { color: '#000', fontSize: 16, fontWeight: '600' },
 });

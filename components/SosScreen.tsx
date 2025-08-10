@@ -27,7 +27,7 @@ export default function SosScreen() {
 
   const sendSosAlert = async () => {
     try {
-      const response = await fetch("https://your-backend-url.onrender.com/sos", {
+      const response = await fetch("https://sms-3850.onrender.com/sos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -38,7 +38,7 @@ export default function SosScreen() {
       if (response.ok) {
         Alert.alert("SOS Sent!", "Your mentor has been notified via SMS.");
       } else {
-        Alert.alert("Error", "Failed to send SOS. Please try again.");
+        Alert.alert("Error", " send alert");
       }
     } catch (error) {
       console.error(error);
