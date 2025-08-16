@@ -29,7 +29,6 @@
       "typedRoutes": true
     },
     "extra": {
-      "clerkPublishableKey": "pk_test_ZGlzY3JldGUtY29sbGllLTIyLmNsZXJrLmFjY291bnRzLmRldiQ",
       "router": {},
       "eas": {
         "projectId": "a188ce2e-ed20-4bd8-8ad6-14d339a8fe7e"

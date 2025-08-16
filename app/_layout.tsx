@@ -72,10 +72,12 @@ export default function RootLayout() {
       <ClerkProvider
         tokenCache={tokenCache}
         publishableKey={
-          Constants.expoConfig?.extra?.clerkPublishableKey ||
-          process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY
+          process.env.EXPO_PUBLIC_env === "live"
+            ? process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_LIVE_KEY
+            : process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_test_KEY
         }
       >
+
         <AuthProvider>
           <RootNavigator />
         </AuthProvider>
