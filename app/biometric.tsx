@@ -46,29 +46,31 @@ export default function BiometricScreen() {
   };
 
   const authenticateWithBiometrics = async () => {
-    setIsLoading(true);
-    try {
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Authenticate to access the app',
-        fallbackLabel: 'Use Password',
-        cancelLabel: 'Cancel',
-      });
+  setIsLoading(true);
+  try {
+    const result = await LocalAuthentication.authenticateAsync({
+      promptMessage: 'Authenticate to access the app',
+      fallbackLabel: 'Use Password',
+      cancelLabel: 'Cancel',
+    });
 
-      if (result.success) {
-        router.replace('/');
-      } else {
-        Alert.alert('Authentication Failed', 'Please try again');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Authentication failed. Please try again.');
-    } finally {
-      setIsLoading(false);
+    if (result.success) {
+      // Navigate directly to the main drawer after successful authentication
+      router.replace('/dashboard');
+    } else {
+      Alert.alert('Authentication Failed', 'Please try again');
     }
-  };
+  } catch (error) {
+    Alert.alert('Error', 'Authentication failed. Please try again.');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-  const skipBiometric = () => {
-    router.replace('/');
-  };
+
+  // const skipBiometric = () => {
+  //   router.replace('/');
+  // };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -98,7 +100,7 @@ export default function BiometricScreen() {
             Authenticate with {biometricType}
           </Button>
           
-          <Button
+          {/* <Button
             mode="text"
             onPress={skipBiometric}
             disabled={isLoading}
@@ -106,7 +108,7 @@ export default function BiometricScreen() {
             labelStyle={styles.skipButtonText}
           >
             Skip for now
-          </Button>
+          </Button> */}
         </View>
       </View>
     </SafeAreaView>

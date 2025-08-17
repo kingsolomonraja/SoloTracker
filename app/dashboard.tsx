@@ -19,6 +19,9 @@ import {
   PermissionStatus,
 } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MaskedView from '@react-native-masked-view/masked-view';
+import { LinearGradient } from 'expo-linear-gradient';
+
 import { useUser } from '@clerk/clerk-expo';
 
 import { LocationService } from '@/services/LocationService';
@@ -177,7 +180,16 @@ export default function PunchInScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title}>Hello, {userName} 👋</Text>
+          <MaskedView maskElement={<Text style={[styles.title, { backgroundColor: 'transparent' }]}>Hello, {userName} 👋</Text>}>
+            <LinearGradient
+              colors={['#00bfff', '#00008b']} // Light blue to dark blue
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+            >
+              <Text style={[styles.title, { opacity: 0 }]}>Hello, {userName} 👋</Text>
+            </LinearGradient>
+          </MaskedView>
+
           <Text style={styles.subtitle}>Ready to check in?</Text>
         </View>
 

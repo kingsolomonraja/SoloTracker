@@ -4,21 +4,26 @@
     "slug": "student-checkin-app",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/favicon.png",
+    "icon": "./assets/logo.png",
     "scheme": "studentpunch",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
     "android": {
-      "package": "com.yourcompany.studentpunch"
+      "package": "com.studentpunch.app"  
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.studentpunch"
+      "bundleIdentifier": "com.studentpunch.app" 
     },
     "web": {
       "bundler": "metro",
       "output": "single",
-      "favicon": "./assets/icon.png"
+      "favicon": "./assets/logo.png"
     },
     "plugins": [
       "expo-router",

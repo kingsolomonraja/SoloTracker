@@ -1,43 +1,50 @@
 // app/_layout.tsx
-import { StatusBar } from 'expo-status-bar';
-import { ClerkProvider } from '@clerk/clerk-expo';
-import { tokenCache } from '@clerk/clerk-expo/token-cache';
-import { PaperProvider } from 'react-native-paper';
-import { useFrameworkReady } from '@/hooks/useFrameworkReady';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { createDrawerNavigator } from '@react-navigation/drawer';
-import { useAuth } from '@clerk/clerk-expo';
-import Constants from 'expo-constants';
+import { StatusBar } from "expo-status-bar";
+import { ClerkProvider } from "@clerk/clerk-expo";
+import { tokenCache } from "@clerk/clerk-expo/token-cache";
+import { PaperProvider } from "react-native-paper";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createDrawerNavigator } from "@react-navigation/drawer";
+import { useAuth } from "@clerk/clerk-expo";
+import { useThemeContext, ThemeProvider } from "@/contexts/ThemeContext";
 
-import PunchInScreen from './dashboard';          // Student check-in (was index.tsx)
-import HistoryScreen from './history';          // Student history
-import ProfileScreen from './profile';          // Student profile
-import SosScreen from '@/components/SosScreen';
-import TodoScreen from '@/components/TodoScreen';
-import SettingsScreen from '@/components/SettingsScreen';
-import LoginScreen from './index';
-import BiometricScreen from './biometric';
-import NotFoundScreen from './+not-found';
-import { AuthProvider } from '@/contexts/AuthContext';
-import About from '@/components/About';
+import PunchInScreen from "./dashboard";
+import HistoryScreen from "./history";
+import ProfileScreen from "./profile";
+import SosScreen from "@/components/SosScreen";
+import TodoScreen from "@/components/TodoScreen";
+import SettingsScreen from "@/components/SettingsScreen";
+import LoginScreen from "./index";
+import BiometricScreen from "./biometric";
+import NotFoundScreen from "./+not-found";
+import { AuthProvider } from "@/contexts/AuthContext";
+import About from "@/components/About";
 
 const Stack = createNativeStackNavigator();
 const Drawer = createDrawerNavigator();
 
 function MainDrawer() {
+  const { theme } = useThemeContext();
+
   return (
     <Drawer.Navigator
       initialRouteName="CheckIn"
       screenOptions={{
         headerShown: true,
-        drawerPosition: 'left',
-        drawerType: 'front',
-        drawerActiveTintColor: '#000',
-        drawerInactiveTintColor: '#666',
+        drawerPosition: "left",
+        drawerType: "front",
+        drawerActiveTintColor: theme.colors.primary,
+        drawerInactiveTintColor: theme.colors.onBackground,
+        drawerStyle: { backgroundColor: theme.colors.background },
+        headerStyle: { backgroundColor: theme.colors.background },
+        headerTintColor: theme.colors.onBackground,
       }}
     >
-      {/* List all features in the Drawer */}
-      <Drawer.Screen name="CheckIn" component={PunchInScreen} options={{ title: 'Student Check-In' }} />
+      <Drawer.Screen
+        name="CheckIn"
+        component={PunchInScreen}
+        options={{ title: "Student Check-In" }}
+      />
       <Drawer.Screen name="History" component={HistoryScreen} />
       <Drawer.Screen name="Profile" component={ProfileScreen} />
       <Drawer.Screen name="SOS" component={SosScreen} />
@@ -77,12 +84,13 @@ export default function RootLayout() {
             : process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_test_KEY
         }
       >
-
         <AuthProvider>
-          <RootNavigator />
+          <ThemeProvider>
+            <RootNavigator />
+          </ThemeProvider>
         </AuthProvider>
       </ClerkProvider>
-      <StatusBar style="dark" />
+      <StatusBar style="auto" />
     </PaperProvider>
   );
 }

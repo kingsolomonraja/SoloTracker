@@ -6,7 +6,6 @@ import {
   StyleSheet,
   Alert,
   TouchableOpacity,
-  Modal,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
@@ -16,10 +15,46 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Mail } from 'lucide-react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { useOAuth } from '@clerk/clerk-expo';
-import { makeRedirectUri } from 'expo-auth-session';
+import * as Linking from 'expo-linking';
 import { useAuthContext } from '@/contexts/AuthContext';
 
 WebBrowser.maybeCompleteAuthSession();
+
+/**
+ * Debug helper: wrap global.fetch to log any non-JSON responses.
+ * IMPORTANT: Keep this at top so it runs before other network calls.
+ */
+(function addFetchLogger() {
+  try {
+    // @ts-ignore
+    const nativeFetch = global.fetch;
+    // @ts-ignore
+    if (!nativeFetch.__logged) {
+      // @ts-ignore
+      global.fetch = async (input: any, init?: any) => {
+        const url = typeof input === 'string' ? input : input?.url ?? String(input);
+        const res = await nativeFetch(input, init);
+        try {
+          const ct = res.headers?.get?.('content-type') || '';
+          if (!ct.toLowerCase().includes('application/json')) {
+            // clone and get text safely
+            const txt = await (res.clone().text().catch(() => '<no-body-or-binary>'));
+            console.warn('[fetch-logger] Non-JSON response from:', url, 'status:', res.status);
+            console.warn('[fetch-logger] Body (first 1500 chars):\n', txt.slice(0, 1500));
+          }
+        } catch (e) {
+          console.warn('[fetch-logger] error while inspecting response for', url, e);
+        }
+        return res;
+      };
+      // mark so we don't re-wrap
+      // @ts-ignore
+      global.fetch.__logged = true;
+    }
+  } catch (e) {
+    console.warn('[fetch-logger] could not attach fetch logger', e);
+  }
+})();
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -27,7 +62,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  // For missing fields flow
+  // Missing-fields flow
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [missingValues, setMissingValues] = useState<Record<string, string>>({});
   const [pendingSignUpObj, setPendingSignUpObj] = useState<any>(null);
@@ -36,13 +71,24 @@ export default function LoginScreen() {
   const { signInEmailPassword } = useAuthContext();
   const { startOAuthFlow } = useOAuth({ strategy: 'oauth_google' });
 
+  const safeErrorMessage = (err: any) => {
+    if (!err) return 'Unknown error';
+    if (typeof err === 'string') return err;
+    if (err.message) return err.message;
+    try {
+      return JSON.stringify(err);
+    } catch {
+      return String(err);
+    }
+  };
+
   const handleEmailSignIn = async () => {
     setLoading(true);
     try {
       await signInEmailPassword(email, password);
       router.replace('/biometric');
     } catch (err: any) {
-      Alert.alert('Sign-in Failed', err?.message || 'Please try again');
+      Alert.alert('Sign-in Failed', safeErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -58,42 +104,62 @@ export default function LoginScreen() {
   const handleGoogleSignIn = async () => {
     setGoogleLoading(true);
     try {
-      const redirectUri = makeRedirectUri({
-  scheme: "studentpunch" // your app.json scheme
-});
+      // <-- USE Linking.createURL to reliably create the app deep link
+      const redirectUrl = Linking.createURL('/oauth-callback', { scheme: 'studentpunch' });
+      console.log('[auth] Using redirectUrl:', redirectUrl);
 
-      console.log('Using redirectUri:', redirectUri);
+      // Helpful debug: log environment & keys (remove in production)
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-var-requires
+        const Constants = require('expo-constants').default;
+        console.log('[auth] expoConfig extra (if set):', Constants.expoConfig?.extra ?? '<no-expoConfig.extra>');
+      } catch (e) {
+        // ignore
+      }
 
-      const result: any = await startOAuthFlow({ redirectUrl: redirectUri });
-      console.log('startOAuthFlow result:', result);
+      // call Clerk's startOAuthFlow
+      const result: any = await startOAuthFlow({ redirectUrl });
+      console.log('[auth] startOAuthFlow result:', result);
 
       const { createdSessionId, setActive, signUp } = result || {};
 
       if (createdSessionId) {
-        await setActive({ session: createdSessionId });
+        await setActive?.({ session: createdSessionId });
         router.replace('/biometric');
         return;
       }
 
-      // If signup exists but missing required fields, prompt user
       if (signUp && signUp.status === 'missing_requirements') {
+        console.log('[auth] signUp missing requirements:', signUp);
         const fields = signUp.missingFields || signUp.requiredFields || [];
         setMissingFields(fields);
         setPendingSignUpObj({ signUp, setActive });
-        // init missingValues with empty strings
         const init: Record<string, string> = {};
-        (fields || []).forEach((f: string) => {
-          init[f] = '';
-        });
+        fields.forEach((f: string) => (init[f] = ''));
         setMissingValues(init);
         setShowMissingDialog(true);
         return;
       }
 
-      Alert.alert('Error', 'Google Sign-in failed: missing session data.');
+      // log the whole result when something unexpected arrives
+      console.warn('[auth] OAuth completed but no createdSessionId:', result);
+      Alert.alert('Error', 'Google Sign-in failed: missing session data. Check the console for details.');
     } catch (err: any) {
-      console.error('Google sign-in error:', err);
-      Alert.alert('Google Sign-In Failed', err?.message || JSON.stringify(err));
+      // Extra effort: if err contains a response-like object, try extract text
+      console.error('[auth] Google sign-in raw error:', err);
+
+      // If Clerk/SDK returned an object with `response` that has text(), show it
+      try {
+        if (err?.response && typeof err.response.text === 'function') {
+          const text = await err.response.text();
+          console.error('[auth] Error response body (text):', text.slice(0, 2000));
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      // show user-friendly message
+      Alert.alert('Google Sign-In Failed', safeErrorMessage(err));
     } finally {
       setGoogleLoading(false);
     }
@@ -113,13 +179,11 @@ export default function LoginScreen() {
       const { signUp, setActive } = pendingSignUpObj;
       const payload: Record<string, any> = {};
 
-      // include only provided fields
       missingFields.forEach((f) => {
         const v = (missingValues[f] || '').trim();
         if (v) payload[f] = v;
       });
 
-      // if password is required but user didn't type one, generate a random strong password
       const requiresPassword =
         (signUp.requiredFields && signUp.requiredFields.includes('password')) ||
         (signUp.missingFields && signUp.missingFields.includes('password'));
@@ -128,35 +192,21 @@ export default function LoginScreen() {
         payload.password = randomPassword(20);
       }
 
-      // Try updating the signUp with the provided payload
-      if (typeof signUp.update === 'function') {
-        await signUp.update(payload);
-      }
+      if (typeof signUp.update === 'function') await signUp.update(payload);
+      if (typeof signUp.create === 'function') await signUp.create();
 
-      // Attempt to finalize/create the sign up (some Clerk flows may need create)
-      if (typeof signUp.create === 'function') {
-        await signUp.create();
-      }
-
-      // After update/create, try to get createdSessionId from signUp
-      const createdSessionId = signUp.createdSessionId || (signUp?.createdSessionId === '' ? null : signUp.createdSessionId);
-
-      // If the SDK returned a session, activate it
+      const createdSessionId = signUp.createdSessionId;
       if (createdSessionId) {
-        await setActive({ session: createdSessionId });
+        await setActive?.({ session: createdSessionId });
         setShowMissingDialog(false);
         router.replace('/biometric');
         return;
       }
 
-      // As a fallback, ask user to try again or check dashboard settings
-      Alert.alert(
-        'Signup incomplete',
-        'We updated your account details but could not automatically sign you in. Please try signing in again or contact support.'
-      );
+      Alert.alert('Signup incomplete', 'Please try signing in again.');
     } catch (err: any) {
       console.error('finishSignUpWithMissingFields error:', err);
-      Alert.alert('Error', err?.message || JSON.stringify(err));
+      Alert.alert('Error', safeErrorMessage(err));
     } finally {
       setGoogleLoading(false);
       setShowMissingDialog(false);
@@ -219,7 +269,6 @@ export default function LoginScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Missing fields dialog */}
       <Portal>
         <Dialog visible={showMissingDialog} onDismiss={() => setShowMissingDialog(false)}>
           <Dialog.Title>More details required</Dialog.Title>

@@ -1,66 +1,68 @@
-// components/SosScreen.tsx
 import React, { useEffect, useState } from 'react';
-import { View, Text, Alert, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Alert, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { FirestoreService } from '@/services/FirestoreService';
 
 export default function SosScreen() {
-  const { user } = useAuth(); // access Firebase user
+  const { user } = useAuth();
   const [name, setName] = useState<string>('Student');
+  const [loading, setLoading] = useState(false);
 
-  // ✅ Load user name from Firestore on mount
+  // Load name from Firestore or fallback to user.fullName / email
   useEffect(() => {
     const loadUserName = async () => {
       if (!user?.uid) return;
       try {
         const profile = await FirestoreService.getUserProfile(user.uid);
-        if (profile?.name) {
-          setName(profile.name);
-        }
+        if (profile?.name) setName(profile.name);
+        else if (user.fullName) setName(user.fullName);
+        else if (user.email) setName(user.email || 'Unknown User');
       } catch (e) {
         console.error('Failed to load user name:', e);
       }
     };
-
     loadUserName();
   }, [user?.uid]);
 
   const sendSosAlert = async () => {
+    setLoading(true);
     try {
-      const response = await fetch("https://sms-3850.onrender.com/sos", {
+      const response = await fetch("https://sms-4aij.onrender.com/sos", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: name, // ✅ dynamic user name
+          username: name || user?.fullName || user?.email || "Unknown User",
         }),
       });
 
       if (response.ok) {
-        Alert.alert("SOS Sent!", "Your mentor has been notified via SMS.");
+        Alert.alert("✅ SOS Sent!", "Your mentor has been notified via SMS.");
       } else {
-        Alert.alert("Error", " send alert");
+        Alert.alert("❌ Error", "Notification not sent. Please try again.");
       }
     } catch (error) {
       console.error(error);
-      Alert.alert("Error", "Could not connect to SOS service.");
+      Alert.alert("❌ Error", "Could not connect to SOS service.");
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <View style={styles.container}>
-      <TouchableOpacity style={styles.circleButton} onPress={sendSosAlert}>
-        <Text style={styles.buttonText}>Send{'\n'}SOS Alert</Text>
-      </TouchableOpacity>
+      {loading ? (
+        <ActivityIndicator size="large" color="red" />
+      ) : (
+        <TouchableOpacity style={styles.circleButton} onPress={sendSosAlert}>
+          <Text style={styles.buttonText}>Send{"\n"}SOS Alert</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
+  container: { flex: 1, justifyContent: "center", alignItems: "center" },
   circleButton: {
     width: 200,
     height: 200,

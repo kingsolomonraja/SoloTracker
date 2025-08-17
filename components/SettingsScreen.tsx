@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { View, Text, Switch, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { useThemeContext } from "@/contexts/ThemeContext"
+
+
 
 export default function SettingsScreen() {
+  const { isDark, setIsDark } = useThemeContext();
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [darkModeEnabled, setDarkModeEnabled] = useState(false);
   const [locationAccess, setLocationAccess] = useState(true);
@@ -19,23 +23,12 @@ export default function SettingsScreen() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>Settings</Text>
+    <View style={[styles.container, { backgroundColor: isDark ? "#000" : "#fff" }]}>
+      <Text style={[styles.header, { color: isDark ? "#fff" : "#000" }]}>Settings</Text>
 
       <View style={styles.item}>
-        <Text style={styles.label}>Enable Notifications</Text>
-        <Switch
-          value={notificationsEnabled}
-          onValueChange={setNotificationsEnabled}
-        />
-      </View>
-
-      <View style={styles.item}>
-        <Text style={styles.label}>Dark Mode</Text>
-        <Switch
-          value={darkModeEnabled}
-          onValueChange={setDarkModeEnabled}
-        />
+        <Text style={[styles.label, { color: isDark ? "#ddd" : "#333" }]}>Dark Mode</Text>
+        <Switch value={isDark} onValueChange={setIsDark} />
       </View>
 
       <View style={styles.item}>
