@@ -1,17 +1,13 @@
-// contexts/AuthContext.tsx
-import React, { createContext, useContext } from 'react';
-import {
-  useAuth as useClerkAuth,
-  useUser as useClerkUser,
-  useSignIn,
-} from '@clerk/clerk-expo';
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { auth } from '@/services/firebase';
+import { AuthService } from '@/services/AuthService';
 
 export type AppUser = {
   uid: string;
   email?: string | null;
-  firstName?: string | null;
-  lastName?: string | null;
-  fullName?: string | null;
+  displayName?: string | null;
+  photoURL?: string | null;
 };
 
 interface AuthContextType {
@@ -19,60 +15,62 @@ interface AuthContextType {
   isLoggedIn: boolean;
   loading: boolean;
   signInEmailPassword: (email: string, password: string) => Promise<void>;
+  signUpEmailPassword: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { isLoaded, isSignedIn, signOut: clerkSignOut } = useClerkAuth();
-  const { user: clerkUser } = useClerkUser();
-  const { isLoaded: signInLoaded, signIn, setActive } = useSignIn();
+  const [user, setUser] = useState<AppUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const user: AppUser | null = clerkUser
-    ? {
-        uid: clerkUser.id,
-        email:
-          clerkUser.primaryEmailAddress?.emailAddress ||
-          clerkUser.emailAddresses[0]?.emailAddress ||
-          null,
-        firstName: clerkUser.firstName || null,
-        lastName: clerkUser.lastName || null,
-        fullName:
-          clerkUser.fullName ||
-          [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(' ') ||
-          null,
+  useEffect(() => {
+    AuthService.initialize();
+    
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser: User | null) => {
+      if (firebaseUser) {
+        setUser({
+          uid: firebaseUser.uid,
+          email: firebaseUser.email,
+          displayName: firebaseUser.displayName,
+          photoURL: firebaseUser.photoURL,
+        });
+      } else {
+        setUser(null);
       }
-    : null;
-
-  const signInEmailPassword = async (email: string, password: string) => {
-    if (!signInLoaded || !signIn) throw new Error('SignIn instance not ready');
-
-    const result = await signIn.create({
-      identifier: email,
-      password,
+      setLoading(false);
     });
 
-    if (result.status === 'complete') {
-      await setActive!({ session: result.createdSessionId });
-    } else {
-      console.error('Sign-in not completed:', result);
-      throw new Error('Sign-in failed');
-    }
+    return unsubscribe;
+  }, []);
+
+  const signInEmailPassword = async (email: string, password: string) => {
+    await AuthService.signInWithEmail(email, password);
+  };
+
+  const signUpEmailPassword = async (email: string, password: string) => {
+    await AuthService.signUpWithEmail(email, password);
+  };
+
+  const signInWithGoogle = async () => {
+    await AuthService.signInWithGoogle();
   };
 
   const signOut = async () => {
-    if (!clerkSignOut) throw new Error('Auth not ready');
-    await clerkSignOut();
+    await AuthService.signOut();
   };
 
   return (
     <AuthContext.Provider
       value={{
         user,
-        isLoggedIn: !!isSignedIn,
-        loading: !isLoaded,
+        isLoggedIn: !!user,
+        loading,
         signInEmailPassword,
+        signUpEmailPassword,
+        signInWithGoogle,
         signOut,
       }}
     >
@@ -87,7 +85,6 @@ export function useAuthContext() {
   return ctx;
 }
 
-// For backward compatibility
 export function useAuth() {
   return useAuthContext();
 }

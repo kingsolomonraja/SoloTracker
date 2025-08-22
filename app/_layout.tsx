@@ -1,12 +1,9 @@
-// app/_layout.tsx
 import { StatusBar } from "expo-status-bar";
-import { ClerkProvider } from "@clerk/clerk-expo";
-import { tokenCache } from "@clerk/clerk-expo/token-cache";
 import { PaperProvider } from "react-native-paper";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createDrawerNavigator } from "@react-navigation/drawer";
-import { useAuth } from "@clerk/clerk-expo";
 import { useThemeContext, ThemeProvider } from "@/contexts/ThemeContext";
+import { useFrameworkReady } from "@/hooks/useFrameworkReady";
 
 import PunchInScreen from "./dashboard";
 import HistoryScreen from "./history";
@@ -17,7 +14,7 @@ import SettingsScreen from "@/components/SettingsScreen";
 import LoginScreen from "./index";
 import BiometricScreen from "./biometric";
 import NotFoundScreen from "./+not-found";
-import { AuthProvider } from "@/contexts/AuthContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import About from "@/components/About";
 
 const Stack = createNativeStackNavigator();
@@ -56,11 +53,15 @@ function MainDrawer() {
 }
 
 function RootNavigator() {
-  const { isSignedIn } = useAuth();
+  const { isLoggedIn, loading } = useAuth();
+
+  if (loading) {
+    return null; // Or a loading screen
+  }
 
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
-      {isSignedIn ? (
+      {isLoggedIn ? (
         <Stack.Screen name="main" component={MainDrawer} />
       ) : (
         <>
@@ -74,22 +75,15 @@ function RootNavigator() {
 }
 
 export default function RootLayout() {
+  useFrameworkReady();
+
   return (
     <PaperProvider>
-      <ClerkProvider
-        tokenCache={tokenCache}
-        publishableKey={
-          process.env.EXPO_PUBLIC_env === "live"
-            ? process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_LIVE_KEY
-            : process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_test_KEY
-        }
-      >
-        <AuthProvider>
-          <ThemeProvider>
-            <RootNavigator />
-          </ThemeProvider>
-        </AuthProvider>
-      </ClerkProvider>
+      <AuthProvider>
+        <ThemeProvider>
+          <RootNavigator />
+        </ThemeProvider>
+      </AuthProvider>
       <StatusBar style="auto" />
     </PaperProvider>
   );

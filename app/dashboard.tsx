@@ -22,7 +22,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import MaskedView from '@react-native-masked-view/masked-view';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { useUser } from '@clerk/clerk-expo';
+import { useAuth } from '@/contexts/AuthContext';
 
 import { LocationService } from '@/services/LocationService';
 import { FirestoreService } from '@/services/FirestoreService';
@@ -34,7 +34,7 @@ const formatTime = (timestamp: number) => {
 };
 
 export default function PunchInScreen() {
-  const { user, isLoaded } = useUser(); // Clerk user
+  const { user, loading } = useAuth();
   const [userName, setUserName] = useState('Student');
   const [isLoading, setIsLoading] = useState(false);
   const [lastCheckIn, setLastCheckIn] = useState<string | null>(null);
@@ -57,20 +57,20 @@ export default function PunchInScreen() {
   const [weatherError, setWeatherError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isLoaded || !user) return;
+    if (loading || !user) return;
 
     const fetchUserName = async () => {
-      const profile = await FirestoreService.getUserProfile(user.id);
+      const profile = await FirestoreService.getUserProfile(user.uid);
       if (profile?.name) {
         setUserName(profile.name);
       } else {
-        // fallback to Clerk's name
-        setUserName(user.fullName || 'Student');
+        // fallback to Firebase user displayName
+        setUserName(user.displayName || 'Student');
       }
     };
 
     fetchUserName();
-  }, [isLoaded, user]);
+  }, [loading, user]);
 
   useEffect(() => {
     (async () => {
@@ -89,8 +89,8 @@ export default function PunchInScreen() {
         if (!location) throw new Error('Could not retrieve location');
 
         await FirestoreService.saveCheckIn({
-          userId: user.id, // Clerk's ID
-          email: user.primaryEmailAddress?.emailAddress || '',
+          userId: user.uid,
+          email: user.email || '',
           timestamp: new Date(),
           latitude: location.latitude,
           longitude: location.longitude,
@@ -168,10 +168,10 @@ export default function PunchInScreen() {
     setCameraVisible(true);
   };
 
-  if (!isLoaded) {
+  if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <Text>Loading user...</Text>
+        <Text>Loading...</Text>
       </SafeAreaView>
     );
   }

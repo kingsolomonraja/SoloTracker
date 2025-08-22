@@ -15,7 +15,7 @@ export default function SosScreen() {
       try {
         const profile = await FirestoreService.getUserProfile(user.uid);
         if (profile?.name) setName(profile.name);
-        else if (user.fullName) setName(user.fullName);
+        else if (user.displayName) setName(user.displayName);
         else if (user.email) setName(user.email || 'Unknown User');
       } catch (e) {
         console.error('Failed to load user name:', e);
@@ -31,7 +31,7 @@ export default function SosScreen() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          username: name || user?.fullName || user?.email || "Unknown User",
+          username: name || user?.displayName || user?.email || "Unknown User",
         }),
       });
 

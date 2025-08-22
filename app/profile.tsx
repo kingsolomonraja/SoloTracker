@@ -23,7 +23,7 @@ import { useThemeContext } from "@/contexts/ThemeContext";
 import { Text } from "react-native"; // keep only RN Text here
 
 export default function ProfileScreen() {
-  const { user, signOut } = useAuth();
+  const { user, signOut } = useAuthContext();
   const { theme } = useThemeContext();
 
   const [name, setName] = useState("Student User");
@@ -37,8 +37,8 @@ export default function ProfileScreen() {
         const profile = await FirestoreService.getUserProfile(user.uid);
         if (profile?.name) {
           setName(profile.name);
-        } else if (user?.fullName) {
-          setName(user.fullName);
+        } else if (user?.displayName) {
+          setName(user.displayName);
         }
       } catch (e) {
         console.error("Failed to load user profile:", e);
@@ -61,7 +61,7 @@ export default function ProfileScreen() {
         if (user?.uid) {
           await FirestoreService.saveUserProfile(user.uid, {
             name: trimmed,
-            email: user?.email || "",
+            email: user.email || "",
           });
         }
       }
@@ -113,7 +113,7 @@ export default function ProfileScreen() {
               <View style={styles.emailContainer}>
                 <Mail size={16} color={theme.colors.onBackground} />
                 <Text style={[styles.userEmail, { color: theme.colors.onBackground }]}>
-                  {user?.email}
+                  {user.email}
                 </Text>
               </View>
             </View>
