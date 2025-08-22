@@ -13,7 +13,7 @@ export class AuthService {
   static async initialize() {
     // Configure Google Sign-In
     GoogleSignin.configure({
-      webClientId: 'YOUR_WEB_CLIENT_ID', // Replace with your actual Web Client ID from Firebase Console
+      webClientId: '1097095993421-5uoipvhjaaphe79h4dnfe3796u3jhc8a.apps.googleusercontent.com', // Replace with your actual Web Client ID from Firebase Console
     });
   }
 
